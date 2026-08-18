@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASX Dashboard — Setup</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231a1a19'/%3E%3Cpath d='M5 23 L12 15 L18 19 L27 8' fill='none' stroke='%233987e5' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='27' cy='8' r='3' fill='%23d95926'/%3E%3C/svg%3E">
+<style>
+:root{
+  color-scheme:light;
+  --surface:#fcfcfb; --plane:#f9f9f7; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --line:#c3c2b7; --blue:#2a78d6; --orange:#eb6834;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+}
+@media (prefers-color-scheme:dark){
+  :root{--surface:#1a1a19;--plane:#0d0d0d;--ink:#fff;--ink2:#c3c2b7;--muted:#898781;
+        --grid:#2c2c2a;--line:#383835;--blue:#3987e5;--orange:#d95926;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);
+  font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:760px;margin:0 auto;padding:48px 24px 96px}
+h1{font-size:30px;letter-spacing:-.02em;margin:0 0 6px}
+.lede{color:var(--ink2);font-size:17px;margin:0 0 8px}
+.time{display:inline-block;background:var(--surface);border:1px solid var(--grid);
+  border-radius:999px;padding:4px 12px;font-size:13px;color:var(--ink2);margin-bottom:34px}
+h2{font-size:19px;margin:0 0 4px;letter-spacing:-.01em}
+.step{background:var(--surface);border:1px solid var(--grid);border-radius:14px;
+  padding:22px 24px;margin-bottom:16px;position:relative}
+.num{position:absolute;left:-14px;top:20px;width:30px;height:30px;border-radius:50%;
+  background:var(--blue);color:#fff;font-size:15px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px var(--plane)}
+@media(max-width:820px){.num{position:static;margin-bottom:10px}}
+.mins{font-size:13px;color:var(--muted);font-weight:400}
+ol,ul{padding-left:22px;margin:12px 0}
+li{margin-bottom:9px}
+code{background:var(--plane);border:1px solid var(--grid);border-radius:5px;
+  padding:2px 7px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em}
+pre{background:var(--plane);border:1px solid var(--grid);border-radius:9px;
+  padding:13px 15px;overflow-x:auto;margin:12px 0}
+pre code{background:none;border:none;padding:0}
+a{color:var(--blue);font-weight:500}
+kbd{background:var(--surface);border:1px solid var(--line);border-bottom-width:2px;
+  border-radius:5px;padding:2px 7px;font-family:inherit;font-size:.85em;font-weight:600;
+  white-space:nowrap}
+.note{border-left:3px solid var(--warn);background:var(--plane);border-radius:0 9px 9px 0;
+  padding:13px 16px;margin:14px 0;font-size:15px}
+.note strong{color:var(--ink)}
+.done{border-left:3px solid var(--good)}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:15px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--grid)}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:500}
+hr{border:none;border-top:1px solid var(--grid);margin:38px 0}
+.small{font-size:14px;color:var(--ink2)}
+h3{font-size:16px;margin:26px 0 6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>ASX Dashboard — Setup</h1>
+<p class="lede">Everything below happens in a web browser. No Terminal.</p>
+<span class="time">About 20 minutes, once</span>
+
+<p>When you're done you'll have a dashboard at a web address you can open from any
+device, that updates itself on a schedule forever, for free — with no server and no
+billing cycle to run out of.</p>
+
+<div class="step">
+  <div class="num">1</div>
+  <h2>Create a GitHub account <span class="mins">· 2 min</span></h2>
+  <p>Go to <a href="https://github.com/signup">github.com/signup</a> and sign up. The free
+  plan is all you need.</p>
+  <p><strong>Verify your email.</strong> GitHub won't run scheduled jobs until you do.</p>
+</div>
+
+<div class="step">
+  <div class="num">2</div>
+  <h2>Create the repository <span class="mins">· 2 min</span></h2>
+  <ol>
+    <li>Go to <a href="https://github.com/new">github.com/new</a></li>
+    <li><strong>Repository name:</strong> <code>asx-dashboard</code></li>
+    <li>Select <strong>Public</strong></li>
+    <li>Leave everything else alone. Click <strong>Create repository</strong>.</li>
+  </ol>
+  <div class="note">
+    <strong>Why public?</strong> That's what makes the automation and hosting free.
+    It's safe — only public market data gets published. Your holdings are stored in your
+    browser and never uploaded.
+  </div>
+</div>
+
+<div class="step">
+  <div class="num">3</div>
+  <h2>Upload the files <span class="mins">· 5 min</span></h2>
+  <p>On the empty repository page, click the link that says
+  <strong>uploading an existing file</strong>.</p>
+  <p>Open the <code>asx-dashboard</code> folder I sent you. Select
+  <strong>everything inside it</strong> (<kbd>Cmd</kbd> + <kbd>A</kbd>) and drag it into
+  the browser window.</p>
+  <div class="note">
+    <strong>One catch, and it matters.</strong> macOS hides folders whose name starts with
+    a dot, and there's an important one called <code>.github</code> — it holds the schedule.
+    Press <kbd>Cmd</kbd> + <kbd>Shift</kbd> + <kbd>.</kbd> in Finder to reveal hidden files
+    <em>before</em> you select everything. The same shortcut hides them again afterwards.
+    <br><br>
+    After uploading, check the file list includes a <code>.github</code> folder. Without it
+    nothing will run on a schedule.
+  </div>
+  <p>Scroll to the bottom and click <strong>Commit changes</strong>.</p>
+</div>
+
+<div class="step">
+  <div class="num">4</div>
+  <h2>Turn on GitHub Pages <span class="mins">· 2 min</span></h2>
+  <ol>
+    <li>In your repository, click <strong>Settings</strong> — the one on the repo, top
+      right, not your account settings</li>
+    <li>Left sidebar → <strong>Pages</strong></li>
+    <li>Under <strong>Build and deployment</strong>:
+      <ul>
+        <li><strong>Source:</strong> Deploy from a branch</li>
+        <li><strong>Branch:</strong> <code>main</code>, then change the folder dropdown
+          from <code>/ (root)</code> to <code>/docs</code></li>
+      </ul>
+    </li>
+    <li>Click <strong>Save</strong></li>
+  </ol>
+  <p>Wait 2–3 minutes, then reload that page. It'll show your address:</p>
+  <pre><code>https://&lt;your-username&gt;.github.io/asx-dashboard/</code></pre>
+  <p class="small">It'll say "no data yet" for now. That's expected — nothing has fetched
+  anything.</p>
+</div>
+
+<div class="step">
+  <div class="num">5</div>
+  <h2>Run the first data build <span class="mins">· 5 min</span></h2>
+  <ol>
+    <li>In your repository, click the <strong>Actions</strong> tab</li>
+    <li>If it asks, click the green
+      <strong>I understand my workflows, go ahead and enable them</strong></li>
+    <li>Left sidebar → <strong>Refresh dashboard data</strong></li>
+    <li>Right side → <strong>Run workflow</strong> ▾ → leave mode as <code>full</code> →
+      green <strong>Run workflow</strong></li>
+  </ol>
+  <div class="note">
+    <strong>This first run takes 5–10 minutes.</strong> It downloads 180 days of ASIC
+    short-position history and builds the stock universe from scratch. Every run after
+    this is under a minute.
+  </div>
+  <p>When it finishes with a green tick, open your dashboard address. Data — including
+  six months of short-interest history backfilled from ASIC's archive, and a
+  <strong>Track record</strong> panel under Research &amp; monitor showing how the signals
+  would have performed against the market over that period.</p>
+</div>
+
+<div class="step">
+  <div class="num">6</div>
+  <h2>Add your holdings <span class="mins">· 2 min</span></h2>
+  <p>On the dashboard: <strong>Portfolio</strong> tab → <strong>Edit holdings</strong> →
+  add each position (code, units, average buy price) → <strong>Save</strong>.</p>
+  <p>Stored in your browser only. Use <strong>Export</strong> to save them to a file and
+  <strong>Import</strong> to load them on another computer.</p>
+</div>
+
+<div class="step">
+  <div class="num">7</div>
+  <h2>Share it <span class="mins">· 1 min</span></h2>
+  <p>The dashboard address itself is public — send it to anyone and they'll see the
+  short-interest charts, the signals, the watchlist, all of it. They will <em>not</em>
+  see your portfolio, because that isn't published.</p>
+  <p>To share the portfolio too: <strong>Portfolio</strong> →
+  <strong>Edit holdings</strong> → <strong>Copy share link</strong>. That link carries
+  your positions inside it, so whoever opens it sees the complete dashboard with the
+  Portfolio tab filled in.</p>
+  <div class="note">
+    <strong>Why not just publish the holdings?</strong> Because the repository is public,
+    and anything committed to a public repository stays in its history permanently, even
+    if you delete it later. The share link gives the same result for the person you send
+    it to, without your positions and cost base sitting at an address anyone could find.
+    Treat the link like the information it contains.
+  </div>
+</div>
+
+<div class="note done">
+  <strong>That's it.</strong> From here it runs itself.
+</div>
+
+<table>
+  <tr><th>When</th><th>What happens</th></tr>
+  <tr><td><strong>08:00 AEST, Mon–Fri</strong></td>
+      <td>Full sweep — ASIC short positions, universe, prices, signals</td></tr>
+  <tr><td><strong>Hourly, 10:00–16:00 AEST</strong></td>
+      <td>Prices, macro and announcements; signals re-scored</td></tr>
+  <tr><td><strong>Never</strong></td>
+      <td>Anything while the market is shut</td></tr>
+</table>
+
+<p>The <strong>Force refresh</strong> button on the dashboard opens the workflow so you
+can run it on demand.</p>
+
+<hr>
+
+<h3>Making changes later</h3>
+<p>Any file can be edited on GitHub directly — click the file, click the pencil icon,
+edit, <strong>Commit changes</strong>. The site redeploys within a minute. To replace
+files wholesale, use <strong>Add file → Upload files</strong> again.</p>
+
+<h3>Two things worth knowing</h3>
+<p><strong>Why the repository is public.</strong> GitHub gives unlimited automation
+minutes and free hosting to public repositories; private ones are metered and Pages needs
+a paid plan. What gets published is ASIC short-position data, ASX prices, and the signals
+computed from them — all public information already. Your holdings never leave your
+browser, which is why the Portfolio tab starts empty on a new device until you import
+them.</p>
+
+<p><strong>A dormancy rule.</strong> GitHub switches off scheduled workflows in
+repositories with no activity for 60 days. Yours commits data every weekday, so this
+shouldn't trigger. If it ever does, GitHub emails you and there's a button to switch it
+back on.</p>
+
+</div>
+</body>
+</html>

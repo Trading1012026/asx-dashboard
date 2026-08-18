@@ -1,0 +1,12 @@
+{
+  "name": "asx-short-squeeze-dashboard",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ASX 300 short-selling, squeeze-signal and portfolio dashboard. No dependencies, no server.",
+  "scripts": {
+    "build": "node scripts/build.mjs --mode=full",
+    "build:light": "node scripts/build.mjs --mode=light",
+    "test": "node test/engine.test.mjs && node test/build.test.mjs && node test/render.test.mjs"
+  }
+}

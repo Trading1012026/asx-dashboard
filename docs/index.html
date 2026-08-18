@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ASX Short &amp; Squeeze Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231a1a19'/%3E%3Cpath d='M5 23 L12 15 L18 19 L27 8' fill='none' stroke='%233987e5' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='27' cy='8' r='3' fill='%23d95926'/%3E%3C/svg%3E">
+<style>
+/* ============================== tokens ============================== */
+:root {
+  color-scheme: light;
+  --surface-1: #fcfcfb;
+  --plane: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --series-price: #2a78d6;
+  --series-short: #eb6834;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --success-text: #006300;
+  --sq-100: #cde2fb; --sq-250: #86b6ef; --sq-400: #3987e5; --sq-550: #1c5cab; --sq-700: #0d366b;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1: #1a1a19;
+  --plane: #0d0d0d;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255,255,255,0.10);
+  --series-price: #3987e5;
+  --series-short: #d95926;
+  --success-text: #0ca30c;
+  --sq-100: #0d366b; --sq-250: #184f95; --sq-400: #256abf; --sq-550: #3987e5; --sq-700: #86b6ef;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--plane);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+h1 { font-size: 18px; }
+h2 { font-size: 15px; }
+h3 { font-size: 13px; }
+a { color: var(--series-price); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ============================== layout ============================== */
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 20px 64px; }
+
+header.top {
+  position: sticky; top: 0; z-index: 40;
+  background: var(--plane);
+  border-bottom: 1px solid var(--border);
+}
+.top-inner {
+  max-width: 1280px; margin: 0 auto; padding: 14px 20px 0;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.title-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.title-row .spacer { flex: 1; }
+.stamp { color: var(--muted); font-size: 12px; }
+
+button, .btn {
+  font: inherit; font-size: 13px;
+  background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 12px; cursor: pointer;
+}
+button:hover { border-color: var(--axis); }
+button.primary { background: var(--series-price); border-color: transparent; color: #fff; }
+button:disabled { opacity: .5; cursor: default; }
+
+/* macro strip */
+.macro { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.macro-chip {
+  flex: 0 0 auto; background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; min-width: 120px;
+}
+.macro-chip .lab { font-size: 11px; color: var(--muted); }
+.macro-chip .val { font-size: 15px; font-weight: 600; }
+.macro-chip .dl { font-size: 11px; }
+.up { color: var(--success-text); }
+.down { color: var(--critical); }
+
+/* tabs */
+nav.tabs { display: flex; gap: 2px; margin-top: 2px; }
+nav.tabs button {
+  border: none; background: none; border-radius: 0;
+  border-bottom: 2px solid transparent;
+  padding: 10px 14px; color: var(--text-secondary); font-weight: 500;
+}
+nav.tabs button[aria-selected="true"] {
+  color: var(--text-primary); border-bottom-color: var(--series-price);
+}
+
+/* panels */
+.panel {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 12px; padding: 18px; margin-top: 18px;
+}
+.panel-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; flex-wrap: wrap; }
+.panel-head .spacer { flex: 1; }
+.sub { color: var(--text-secondary); font-size: 13px; margin: 2px 0 14px; max-width: 78ch; }
+.note { color: var(--muted); font-size: 12px; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+
+/* legend */
+.legend { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); }
+.legend .item { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+/* tables */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--grid); }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+tbody tr:hover { background: color-mix(in srgb, var(--series-price) 6%, transparent); }
+td.code { font-weight: 600; }
+
+/* signal cards */
+.cards { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.card {
+  border: 1px solid var(--border); border-radius: 10px; padding: 16px;
+  background: var(--plane);
+}
+.card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.card-head .spacer { flex: 1; }
+.ticker { font-size: 17px; font-weight: 700; }
+.cname { color: var(--text-secondary); font-size: 13px; }
+.tag {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--text-secondary);
+}
+.tag.swing { border-color: var(--warning); color: var(--warning); }
+.tag.position { border-color: var(--series-price); color: var(--series-price); }
+.tag.long { background: var(--good); color: #fff; border-color: transparent; }
+.tag.short { background: var(--critical); color: #fff; border-color: transparent; }
+
+.meter { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; }
+.meter-track { flex: 1; height: 6px; border-radius: 999px; background: var(--grid); overflow: hidden; }
+.meter-fill { height: 100%; border-radius: 999px; }
+.meter-val { font-size: 13px; font-weight: 700; min-width: 34px; text-align: right; }
+
+ul.reasons { margin: 10px 0 0; padding-left: 18px; }
+ul.reasons li { margin-bottom: 7px; color: var(--text-secondary); }
+ul.reasons li.warn { color: var(--serious); }
+.metrics-row { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--grid); font-size: 12px; }
+.metrics-row div span { color: var(--muted); display: block; font-size: 11px; }
+
+/* stat tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.tile { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--plane); }
+.tile .lab { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.tile .val { font-size: 24px; font-weight: 600; margin-top: 2px; }
+.tile .dl { font-size: 12px; }
+
+/* alerts */
+.alert { display: flex; gap: 10px; padding: 11px 13px; border-radius: 8px; margin-bottom: 9px; border: 1px solid var(--border); background: var(--plane); }
+.alert .ico { flex: 0 0 auto; font-weight: 700; width: 18px; text-align: center; }
+.alert.high { border-left: 3px solid var(--critical); }
+.alert.medium { border-left: 3px solid var(--warning); }
+.alert .body { font-size: 13px; color: var(--text-secondary); }
+
+/* chart */
+.chart-wrap { position: relative; }
+svg.chart { display: block; width: 100%; overflow: visible; }
+.tip {
+  position: absolute; pointer-events: none; opacity: 0; transition: opacity .1s;
+  background: var(--surface-1); border: 1px solid var(--axis); border-radius: 8px;
+  padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.16);
+  z-index: 20; min-width: 150px;
+}
+.tip .d { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+.tip .r { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+.tip .r b { font-variant-numeric: tabular-nums; }
+
+select, input[type="text"], input[type="number"] {
+  font: inherit; font-size: 13px; padding: 6px 9px;
+  background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+input.small { width: 92px; }
+
+.empty { color: var(--muted); padding: 24px 0; text-align: center; font-size: 13px; }
+.hidden { display: none !important; }
+.err { color: var(--critical); }
+.pill-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.pill { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); cursor: pointer; background: var(--surface-1); }
+.pill[aria-pressed="true"] { background: var(--series-price); color: #fff; border-color: transparent; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="title-row">
+      <h1>ASX Short &amp; Squeeze Dashboard</h1>
+      <span class="stamp" id="stamp">loading…</span>
+      <span class="spacer"></span>
+      <button id="refreshBtn" title="Opens the GitHub Action that rebuilds the data. Press &quot;Run workflow&quot; there to force a refresh outside the schedule.">Force refresh ↗</button>
+      <button id="themeBtn" title="Toggle light/dark">Light</button>
+    </div>
+    <div class="macro" id="macro"></div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="shorts" aria-selected="true">Short interest</button>
+      <button role="tab" data-tab="signals" aria-selected="false">Signals</button>
+      <button role="tab" data-tab="portfolio" aria-selected="false">Portfolio</button>
+      <button role="tab" data-tab="watch" aria-selected="false">Research &amp; monitor</button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- ===================== TAB 1: SHORT INTEREST ===================== -->
+  <section id="tab-shorts">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Short interest vs price</h2>
+        <span class="spacer"></span>
+        <select id="stockPick"></select>
+        <button id="tableToggle1">Table view</button>
+      </div>
+      <p class="sub">
+        Two panels on one shared time axis rather than one chart with two y-scales — a dual axis lets you
+        manufacture any correlation you like by rescaling. Read them together: price falling while short
+        interest climbs is shorts winning; price rising while short interest falls is covering, and that
+        is what a squeeze looks like as it starts.
+      </p>
+      <div class="legend" style="margin-bottom:10px">
+        <span class="item"><span class="swatch" style="background:var(--series-price)"></span> Share price (A$)</span>
+        <span class="item"><span class="swatch" style="background:var(--series-short)"></span> Short interest (% of issued capital)</span>
+      </div>
+      <div class="chart-wrap" id="linkedWrap">
+        <svg class="chart" id="linkedChart" viewBox="0 0 900 420" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="tip" id="linkedTip"></div>
+      </div>
+      <div id="linkedTable" class="hidden" style="margin-top:14px;max-height:340px;overflow:auto"></div>
+      <div id="stockMeta" style="margin-top:14px"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Most shorted in the ASX 300</h2>
+        <span class="spacer"></span>
+        <select id="rankCount" title="How many bars to draw. The table view always lists every stock.">
+          <option value="25">Top 25</option>
+          <option value="50">Top 50</option>
+          <option value="100">Top 100</option>
+          <option value="9999">All</option>
+        </select>
+        <button id="tableToggle2">Table view</button>
+      </div>
+      <p class="sub">
+        Open short positions as a share of issued capital, from ASIC's daily aggregate report.
+        The chart draws the top names so the bars stay readable; <strong>Table view</strong> lists
+        every stock in the universe.
+        Above <strong>10%</strong> is the extreme tier: enough trapped stock that covering demand alone
+        can move the price. Click any bar to load it in the chart above.
+      </p>
+      <div class="chart-wrap">
+        <svg class="chart" id="rankChart" viewBox="0 0 900 620" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="tip" id="rankTip"></div>
+      </div>
+      <div id="rankTable" class="hidden" style="margin-top:14px;max-height:420px;overflow:auto"></div>
+    </div>
+  </section>
+
+  <!-- ========================= TAB 2: SIGNALS ========================= -->
+  <section id="tab-signals" class="hidden">
+    <div class="panel">
+      <div class="panel-head"><h2>What to buy — squeeze candidates</h2></div>
+      <p class="sub">
+        Ranked by a score built from four things: how much short interest is trapped, how many days of
+        average volume it would take to cover it, whether shorts are actually covering into strength right
+        now, and whether the macro backdrop is helping. Every argument is spelled out — a score you
+        cannot argue with is a score you should not trade.
+      </p>
+      <div class="cards" id="longCards"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>What to short</h2></div>
+      <p class="sub">
+        Deliberately conservative. Anything already above 8% short interest is excluded no matter how weak
+        it looks — joining a crowded short is how you end up on the wrong side of the squeeze you were
+        trying to find.
+      </p>
+      <div class="cards" id="shortCards"></div>
+    </div>
+  </section>
+
+  <!-- ======================== TAB 3: PORTFOLIO ======================== -->
+  <section id="tab-portfolio" class="hidden">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Positions</h2>
+        <span class="spacer"></span>
+        <button id="editHoldings">Edit holdings</button>
+      </div>
+      <div class="tiles" id="pfTiles" style="margin-bottom:18px"></div>
+      <div id="pfTable"></div>
+      <div id="holdingsEditor" class="hidden" style="margin-top:18px;padding-top:18px;border-top:1px solid var(--grid)">
+        <h3 style="margin-bottom:8px">Edit holdings</h3>
+        <p class="note" style="margin-bottom:12px">One row per position. Code, units, average buy price.</p>
+        <div id="editorRows"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button id="addRow">Add position</button>
+          <button id="saveHoldings" class="primary">Save</button>
+          <button id="cancelHoldings">Cancel</button>
+          <span style="flex:1"></span>
+          <button id="shareHoldings" title="Copy a link that shows this dashboard with your portfolio filled in">Copy share link</button>
+          <button id="exportHoldings" title="Download your holdings as a file">Export</button>
+          <button id="importHoldings" title="Load holdings from a file">Import</button>
+          <input type="file" id="importFile" accept="application/json" class="hidden">
+        </div>
+        <p class="note" style="margin-top:10px">
+          Saved in this browser only — never uploaded, never committed. <strong>Copy share
+          link</strong> puts your holdings inside the link itself, so whoever you send it to
+          sees the full dashboard with your portfolio, while the plain public address still
+          shows no positions at all.
+        </p>
+        <span id="saveMsg" class="note"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Short-interest extremes in your book</h2></div>
+      <p class="sub">
+        Sudden changes in who is betting against something you own. A sharp build means someone with a
+        research budget took a view against you — worth finding out what they saw. A sharp unwind is often
+        the early part of a re-rate.
+      </p>
+      <div id="pfExtremes"></div>
+    </div>
+  </section>
+
+  <!-- ========================= TAB 4: WATCH =========================== -->
+  <section id="tab-watch" class="hidden">
+    <div class="panel">
+      <div class="panel-head"><h2>Worth researching now</h2></div>
+      <p class="sub">
+        Stocks across the ASX 300 where the short position <em>moved</em> — built or unwound — rather than
+        merely sitting high. A high level is already the whole of the first tab; a change is new
+        information. These are the leads: go read the announcements and work out what the shorts know.
+      </p>
+      <div id="watchList"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Track record</h2></div>
+      <p class="sub">
+        The engine replayed over stored history: at each past date it was scored using only
+        the data available on that day, then measured against what the price actually did
+        next. Everything is shown as <strong>excess</strong> return — the bucket's average
+        minus the average of every stock over the same windows — because in a rising market
+        every signal looks clever until you subtract the market.
+      </p>
+      <div id="backtest"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Standing monitors</h2></div>
+      <div id="monitors"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Data health</h2></div>
+      <p class="sub">What is actually live, when it last updated, and what it is not telling you.</p>
+      <div id="health"></div>
+    </div>
+  </section>
+</div>
+
+<script type="module">
+/* ==================================================================== *
+ * State
+ * ==================================================================== */
+const S = {
+  data: null,
+  selected: null,
+  range: 90,
+  rankCount: 25,
+  loadedAt: null,
+};
+
+const $ = (id) => document.getElementById(id);
+const fmt = (n, d = 2) =>
+  n === null || n === undefined || !Number.isFinite(n) ? '—' : Number(n).toFixed(d);
+const fmtInt = (n) =>
+  n === null || n === undefined || !Number.isFinite(n) ? '—' : Math.round(n).toLocaleString('en-AU');
+const money = (n, d = 2) =>
+  Number.isFinite(n)
+    ? (n < 0 ? '-$' : '$') +
+      Math.abs(n).toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d })
+    : '—';
+const pct = (n, d = 2) => (Number.isFinite(n) ? (n >= 0 ? '+' : '') + n.toFixed(d) + '%' : '—');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function capMktCap(v) {
+  if (!Number.isFinite(v)) return '—';
+  if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(0) + 'M';
+  return '$' + fmtInt(v);
+}
+
+/* ==================================================================== *
+ * Theme
+ * ==================================================================== */
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  $('themeBtn').textContent = t === 'dark' ? 'Light' : 'Dark';
+  if (S.data) renderAll();
+}
+$('themeBtn').onclick = () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  applyTheme(cur === 'dark' ? 'light' : 'dark');
+};
+
+/* ==================================================================== *
+ * Load
+ * ==================================================================== */
+/* Holdings live in this browser only.
+ *
+ * The repository is public — that is what makes GitHub Actions and Pages free —
+ * so the published data is deliberately limited to public market data. What you
+ * own is yours, stored locally, never uploaded anywhere. The trade-off is that
+ * it does not follow you to another device; use Export/Import for that. */
+const HOLDINGS_KEY = 'asx-dashboard-holdings-v1';
+
+/* A share link carries the holdings inside the URL fragment (`#h=...`).
+ *
+ * The fragment is never sent to the server and never committed to the
+ * repository, so a link can be handed to someone who then sees the complete
+ * dashboard — portfolio included — without those positions being published to
+ * a public address anyone could stumble onto. */
+function encodeShare(holdings) {
+  const json = JSON.stringify({ p: (holdings.positions || []).map((x) =>
+    [x.code, x.units, x.avgPrice, x.notes || '']) });
+  return btoa(unescape(encodeURIComponent(json)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function decodeShare(frag) {
+  try {
+    const b64 = frag.replace(/-/g, '+').replace(/_/g, '/');
+    const json = decodeURIComponent(escape(atob(b64)));
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed?.p)) return null;
+    const positions = parsed.p
+      .map(([code, units, avgPrice, notes]) => ({
+        code: String(code || '').toUpperCase(),
+        units: Number(units), avgPrice: Number(avgPrice), notes: String(notes || ''),
+      }))
+      .filter((x) => /^[A-Z0-9]{2,6}$/.test(x.code)
+        && Number.isFinite(x.units) && Number.isFinite(x.avgPrice));
+    return { positions, shared: true };
+  } catch {
+    return null;
+  }
+}
+
+function loadHoldings() {
+  const frag = new URLSearchParams(location.hash.slice(1)).get('h');
+  if (frag) {
+    const shared = decodeShare(frag);
+    if (shared) return shared;
+  }
+  try {
+    const raw = localStorage.getItem(HOLDINGS_KEY);
+    if (!raw) return { positions: [] };
+    const parsed = JSON.parse(raw);
+    return { positions: Array.isArray(parsed?.positions) ? parsed.positions : [] };
+  } catch {
+    return { positions: [] };
+  }
+}
+
+function saveHoldings(holdings) {
+  try {
+    localStorage.setItem(HOLDINGS_KEY, JSON.stringify(holdings));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function load() {
+  try {
+    // Cache-bust so a refreshed data.json is picked up rather than served
+    // from the CDN edge cache.
+    const res = await fetch('data.json?t=' + Math.floor(Date.now() / 60000));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    S.data = await res.json();
+    S.data.holdings = loadHoldings();
+    S.data.extremes = { extremes: computeHeldExtremes(S.data) };
+    S.loadedAt = Date.now();
+    window.__d = S.data; // exposed for the render test
+    renderAll();
+  } catch (err) {
+    $('stamp').innerHTML = '<span class="err">Could not load data: ' + esc(err.message) + '</span>';
+  }
+}
+
+/* The build script has no idea what you hold, so the "extremes in your book"
+ * detection runs here in the browser against the published short history. */
+function computeHeldExtremes(data) {
+  const held = (data.holdings?.positions || []).map((p) => String(p.code).toUpperCase());
+  const hist = data.history || {};
+  const shorts = Object.fromEntries((data.shorts?.rows || []).map((r) => [r.code, r]));
+  const out = [];
+
+  const delta = (arr, n) => {
+    if (!arr || arr.length < 2) return null;
+    const i = Math.max(0, arr.length - 1 - n);
+    return arr[arr.length - 1][1] - arr[i][1];
+  };
+
+  for (const code of held) {
+    const s = shorts[code];
+    if (!s) continue;
+    const h = hist[code] || [];
+    const pct = s.shortPct;
+    const d5 = delta(h, 5);
+    const d20 = delta(h, 20);
+
+    if (pct >= 10) {
+      out.push({ code, kind: 'level', severity: 'high',
+        message: `${code} sits at ${pct.toFixed(2)}% short — above the 10% extreme line. ` +
+                 `Cuts both ways: violent upside if it turns, sustained pressure if it doesn't.` });
+    } else if (pct >= 8) {
+      out.push({ code, kind: 'level', severity: 'medium',
+        message: `${code} short interest is high at ${pct.toFixed(2)}%.` });
+    }
+    if (d5 !== null && d5 >= 1.0) {
+      out.push({ code, kind: 'building', severity: 'high',
+        message: `${code} short interest jumped +${d5.toFixed(2)} points in 5 sessions ` +
+                 `(now ${pct.toFixed(2)}%). Someone with a research budget took a view against this. ` +
+                 `Worth finding out what they know.` });
+    } else if (d5 !== null && d5 <= -1.0) {
+      out.push({ code, kind: 'covering', severity: 'high',
+        message: `${code} short interest dropped ${Math.abs(d5).toFixed(2)} points in 5 sessions ` +
+                 `(now ${pct.toFixed(2)}%). Shorts are leaving — often the early part of a re-rate.` });
+    } else if (d20 !== null && Math.abs(d20) >= 2.0) {
+      out.push({ code, kind: d20 > 0 ? 'building' : 'covering', severity: 'medium',
+        message: `${code} short interest has ${d20 > 0 ? 'built' : 'unwound'} ` +
+                 `${Math.abs(d20).toFixed(2)} points over 20 sessions, now ${pct.toFixed(2)}%.` });
+    }
+  }
+  return out;
+}
+
+/* Keep an open tab current. The server refreshes hourly; polling every five
+ * minutes means the page catches that within minutes of it landing, without
+ * anyone pressing anything. Skipped while the holdings editor is open so a
+ * re-render can't wipe half-typed input. */
+setInterval(() => {
+  if (document.hidden) return;
+  if (!$('holdingsEditor').classList.contains('hidden')) return;
+  load();
+}, 5 * 60 * 1000);
+
+document.addEventListener('visibilitychange', () => {
+  // Coming back to a tab that has been in the background for a while should
+  // show current data, not whatever was on screen when you left.
+  if (!document.hidden && S.loadedAt && Date.now() - S.loadedAt > 5 * 60 * 1000) load();
+});
+
+/* There is no server to ask for a refresh — the data is rebuilt by a GitHub
+ * Action. Work out the repo from the Pages URL so this needs no configuration:
+ * https://user.github.io/repo/ -> https://github.com/user/repo/actions */
+function actionsUrl() {
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/);
+  if (!m) return null;
+  const repo = location.pathname.split('/').filter(Boolean)[0];
+  return repo
+    ? `https://github.com/${m[1]}/${repo}/actions/workflows/refresh.yml`
+    : `https://github.com/${m[1]}/${m[1]}.github.io/actions`;
+}
+
+$('refreshBtn').onclick = () => {
+  const url = actionsUrl();
+  if (url) window.open(url, '_blank', 'noopener');
+  else load();
+};
+
+/* ==================================================================== *
+ * Tabs
+ * ==================================================================== */
+document.querySelectorAll('nav.tabs button').forEach((btn) => {
+  btn.onclick = () => {
+    document.querySelectorAll('nav.tabs button').forEach((b) =>
+      b.setAttribute('aria-selected', String(b === btn)));
+    ['shorts', 'signals', 'portfolio', 'watch'].forEach((t) =>
+      $('tab-' + t).classList.toggle('hidden', t !== btn.dataset.tab));
+    if (btn.dataset.tab === 'shorts') drawLinked();
+  };
+});
+
+/* ==================================================================== *
+ * Render entry
+ * ==================================================================== */
+function renderAll() {
+  renderStamp();
+  renderMacro();
+  renderPicker();
+  renderRank();
+  drawLinked();
+  renderSignals();
+  renderPortfolio();
+  renderWatch();
+  renderBacktest();
+  renderHealth();
+}
+
+function renderStamp() {
+  const h = S.data?.health;
+  const sd = S.data?.shorts?.tradeDate;
+  const pd = S.data?.prices?.asOf;
+  const bits = [];
+  if (sd) bits.push('Short data: ' + sd + ' (ASIC, T+4)');
+  if (pd) bits.push('Prices: ' + new Date(pd).toLocaleString('en-AU', { timeZone: 'Australia/Sydney' }) + ' AEST (~20 min delayed)');
+  if (bits.length) bits.push('Auto-refreshes daily, plus hourly while the ASX is open');
+  if (!bits.length) bits.push('No data yet — run the refresh workflow on GitHub');
+  $('stamp').textContent = bits.join(' · ');
+}
+
+/* ==================================================================== *
+ * Macro strip
+ * ==================================================================== */
+function renderMacro() {
+  const m = S.data?.macro?.macro;
+  const el = $('macro');
+  if (!m || !Object.keys(m).length) { el.innerHTML = ''; return; }
+  const order = ['audusd', 'asx300idx', 'asx200', 'materialsIdx', 'energyIdx',
+                 'techIdx', 'gold', 'oil', 'soxx', 'ironOre', 'copper'];
+  const keys = [...order.filter((k) => m[k]), ...Object.keys(m).filter((k) => !order.includes(k))];
+  el.innerHTML = keys.map((k) => {
+    const d = m[k];
+    const dp = d.changePct;
+    const t20 = d.trend20Pct;
+    const cls = dp >= 0 ? 'up' : 'down';
+    const dec = k === 'audusd' ? 4 : 2;
+    // A 20-session trend on a series only a few days old is not a trend.
+    const thin = Array.isArray(d.series) && d.series.length < 6;
+    const title = [d.source, thin ? 'trend still building' : null,
+                   d.stale ? 'last close — not re-quoted while the market is shut' : null]
+      .filter(Boolean).join(' — ');
+    return `<div class="macro-chip" title="${esc(title)}"${d.stale ? ' style="opacity:.72"' : ''}>
+      <div class="lab">${esc(d.label)}${d.stale ? ' ·' : ''}</div>
+      <div class="val tnum">${Number(d.last).toFixed(dec)}</div>
+      <div class="dl ${cls} tnum">${pct(dp)}${thin ? '' : ' · 20d ' + pct(t20, 1)}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ==================================================================== *
+ * Stock picker
+ * ==================================================================== */
+function shortRows() {
+  const rows = S.data?.shorts?.rows || [];
+  const uni = new Set(S.data?.universe?.codes || []);
+  const filtered = uni.size ? rows.filter((r) => uni.has(r.code)) : rows;
+  return filtered.slice().sort((a, b) => b.shortPct - a.shortPct);
+}
+
+function renderPicker() {
+  const rows = shortRows();
+  const sel = $('stockPick');
+  if (!rows.length) { sel.innerHTML = '<option>No data</option>'; return; }
+  const held = new Set((S.data?.holdings?.positions || []).map((p) => p.code));
+  const series = S.data?.series?.series || {};
+  // Prefer stocks we have a price series for
+  const withSeries = rows.filter((r) => (series[r.code] || []).length > 3);
+  const list = withSeries.length ? withSeries : rows;
+  if (!S.selected || !list.some((r) => r.code === S.selected)) {
+    S.selected = list[0].code;
+  }
+  // Every stock in the universe is selectable — no truncation.
+  sel.innerHTML = list.map((r) =>
+    `<option value="${esc(r.code)}"${r.code === S.selected ? ' selected' : ''}>` +
+    `${esc(r.code)} — ${esc(r.name.slice(0, 34))} · ${r.shortPct.toFixed(2)}%${held.has(r.code) ? ' ★' : ''}</option>`
+  ).join('');
+  sel.onchange = () => { S.selected = sel.value; drawLinked(); };
+}
+
+/* ==================================================================== *
+ * Chart helpers
+ * ==================================================================== */
+const NS = 'http://www.w3.org/2000/svg';
+function el(name, attrs = {}, text) {
+  const n = document.createElementNS(NS, name);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+function cssVar(v) {
+  return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+}
+function niceTicks(min, max, count = 4) {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) {
+    return [min || 0];
+  }
+  const span = max - min;
+  const raw = span / count;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  const out = [];
+  for (let v = Math.ceil(min / step) * step; v <= max + 1e-9; v += step) out.push(v);
+  return out;
+}
+
+/* ==================================================================== *
+ * TAB 1a — linked price / short-interest panels (shared x, no dual axis)
+ * ==================================================================== */
+function drawLinked() {
+  const svg = $('linkedChart');
+  svg.innerHTML = '';
+  const code = S.selected;
+  if (!code) return;
+
+  const priceSeries = (S.data?.series?.series || {})[code]
+    || (S.data?.priceHistory || {})[code] || [];
+  const shortHist = (S.data?.history || {})[code] || [];
+
+  const meta = renderStockMeta(code);
+
+  if (priceSeries.length < 2 && shortHist.length < 2) {
+    svg.appendChild(el('text', {
+      x: 450, y: 200, 'text-anchor': 'middle', fill: cssVar('--muted'), 'font-size': 13,
+    }, 'No history stored for ' + code + ' yet — it builds up from the next refresh.'));
+    return;
+  }
+
+  // Common date axis = union of both series, clipped to range
+  const allDates = Array.from(new Set([
+    ...priceSeries.map((d) => d[0]),
+    ...shortHist.map((d) => d[0]),
+  ])).sort();
+  const dates = allDates.slice(-S.range);
+  if (dates.length < 2) return;
+  const xIndex = new Map(dates.map((d, i) => [d, i]));
+
+  const priceAt = new Map(priceSeries.map((d) => [d[0], d[1]]));
+  const shortAt = new Map(shortHist.map((d) => [d[0], d[1]]));
+
+  // Forward-fill short interest (published daily but we may miss days)
+  let lastShort = null;
+  const shortFilled = dates.map((d) => {
+    if (shortAt.has(d)) lastShort = shortAt.get(d);
+    return lastShort;
+  });
+  let lastPrice = null;
+  const priceFilled = dates.map((d) => {
+    if (priceAt.has(d)) lastPrice = priceAt.get(d);
+    return lastPrice;
+  });
+
+  const W = 900, H = 420;
+  const M = { l: 54, r: 58, t: 14, b: 26 };
+  const gap = 26;
+  const plotW = W - M.l - M.r;
+  const topH = 210, botH = 120;
+  const topY = M.t, botY = M.t + topH + gap;
+
+  const x = (i) => M.l + (plotW * i) / Math.max(1, dates.length - 1);
+
+  const pVals = priceFilled.filter((v) => Number.isFinite(v));
+  const sVals = shortFilled.filter((v) => Number.isFinite(v));
+  const pMin = Math.min(...pVals), pMax = Math.max(...pVals);
+  const pPad = (pMax - pMin) * 0.12 || pMax * 0.05 || 1;
+  const sMax = Math.max(...sVals, 1) * 1.15;
+
+  const yP = (v) => topY + topH - ((v - (pMin - pPad)) / ((pMax + pPad) - (pMin - pPad))) * topH;
+  const yS = (v) => botY + botH - (v / sMax) * botH;
+
+  const gridC = cssVar('--grid'), axisC = cssVar('--axis'), mutedC = cssVar('--muted');
+  const cPrice = cssVar('--series-price'), cShort = cssVar('--series-short');
+  const surface = cssVar('--surface-1');
+
+  // ---- gridlines + y axes ----
+  for (const t of niceTicks(pMin - pPad, pMax + pPad, 4)) {
+    const y = yP(t);
+    if (y < topY - 1 || y > topY + topH + 1) continue;
+    svg.appendChild(el('line', { x1: M.l, x2: M.l + plotW, y1: y, y2: y, stroke: gridC, 'stroke-width': 1 }));
+    svg.appendChild(el('text', { x: M.l - 8, y: y + 4, 'text-anchor': 'end', fill: mutedC, 'font-size': 11 }, '$' + t.toFixed(2)));
+  }
+  for (const t of niceTicks(0, sMax, 3)) {
+    const y = yS(t);
+    if (y < botY - 1 || y > botY + botH + 1) continue;
+    svg.appendChild(el('line', { x1: M.l, x2: M.l + plotW, y1: y, y2: y, stroke: gridC, 'stroke-width': 1 }));
+    svg.appendChild(el('text', { x: M.l - 8, y: y + 4, 'text-anchor': 'end', fill: mutedC, 'font-size': 11 }, t.toFixed(1) + '%'));
+  }
+
+  // Threshold guides on the short panel. Only draw lines that are far enough
+  // apart on this particular y-scale to label without collision.
+  let lastLabelY = Infinity;
+  [[10, 'extreme', cssVar('--critical')], [8, 'high', cssVar('--warning')], [5, 'elevated', axisC]]
+    .forEach(([lvl, lab, col]) => {
+      if (lvl > sMax) return;
+      const y = yS(lvl);
+      svg.appendChild(el('line', {
+        x1: M.l, x2: M.l + plotW, y1: y, y2: y,
+        stroke: col, 'stroke-width': 1, 'stroke-dasharray': '3 3', opacity: .75,
+      }));
+      if (Math.abs(y - lastLabelY) < 13) return;
+      lastLabelY = y;
+      svg.appendChild(el('text', {
+        x: M.l + 6, y: y - 4, fill: mutedC, 'font-size': 10,
+      }, `${lab} ${lvl}%`));
+    });
+
+  // ---- x axis labels ----
+  const step = Math.max(1, Math.floor(dates.length / 6));
+  for (let i = 0; i < dates.length; i += step) {
+    svg.appendChild(el('text', {
+      x: x(i), y: botY + botH + 18, 'text-anchor': 'middle', fill: mutedC, 'font-size': 11,
+    }, dates[i].slice(5)));
+  }
+  svg.appendChild(el('line', { x1: M.l, x2: M.l + plotW, y1: topY + topH, y2: topY + topH, stroke: axisC }));
+  svg.appendChild(el('line', { x1: M.l, x2: M.l + plotW, y1: botY + botH, y2: botY + botH, stroke: axisC }));
+
+  // ---- short interest area (bottom) ----
+  let areaD = '', lineD = '';
+  let started = false;
+  shortFilled.forEach((v, i) => {
+    if (!Number.isFinite(v)) return;
+    lineD += (started ? 'L' : 'M') + x(i) + ' ' + yS(v);
+    started = true;
+  });
+  if (started) {
+    const firstI = shortFilled.findIndex((v) => Number.isFinite(v));
+    const lastI = shortFilled.length - 1 - [...shortFilled].reverse().findIndex((v) => Number.isFinite(v));
+    areaD = 'M' + x(firstI) + ' ' + (botY + botH) + 'L' + lineD.slice(1) + 'L' + x(lastI) + ' ' + (botY + botH) + 'Z';
+    svg.appendChild(el('path', { d: areaD, fill: cShort, opacity: .18 }));
+    svg.appendChild(el('path', { d: lineD, fill: 'none', stroke: cShort, 'stroke-width': 2, 'stroke-linejoin': 'round' }));
+  }
+
+  // ---- price line (top) ----
+  let pd2 = '', st2 = false;
+  priceFilled.forEach((v, i) => {
+    if (!Number.isFinite(v)) return;
+    pd2 += (st2 ? 'L' : 'M') + x(i) + ' ' + yP(v);
+    st2 = true;
+  });
+  if (st2) {
+    svg.appendChild(el('path', { d: pd2, fill: 'none', stroke: cPrice, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+  }
+
+  // ---- direct labels on the last point of each panel ----
+  const lastP = [...priceFilled].reverse().find((v) => Number.isFinite(v));
+  const lastS = [...shortFilled].reverse().find((v) => Number.isFinite(v));
+  if (Number.isFinite(lastP)) {
+    svg.appendChild(el('circle', { cx: x(dates.length - 1), cy: yP(lastP), r: 4, fill: cPrice, stroke: surface, 'stroke-width': 2 }));
+    svg.appendChild(el('text', { x: x(dates.length - 1) + 8, y: yP(lastP) + 4, fill: cPrice, 'font-size': 12, 'font-weight': 600 }, '$' + lastP.toFixed(2)));
+  }
+  if (Number.isFinite(lastS)) {
+    svg.appendChild(el('circle', { cx: x(dates.length - 1), cy: yS(lastS), r: 4, fill: cShort, stroke: surface, 'stroke-width': 2 }));
+    svg.appendChild(el('text', { x: x(dates.length - 1) + 8, y: yS(lastS) + 4, fill: cShort, 'font-size': 12, 'font-weight': 600 }, lastS.toFixed(2) + '%'));
+  }
+
+  // panel captions
+  svg.appendChild(el('text', { x: M.l, y: topY + 2, fill: mutedC, 'font-size': 11 }, 'Share price'));
+  svg.appendChild(el('text', { x: M.l, y: botY - 6, fill: mutedC, 'font-size': 11 }, 'Short interest, % of issued capital'));
+
+  // ---- crosshair + tooltip across both panels ----
+  const cross = el('line', {
+    x1: 0, x2: 0, y1: topY, y2: botY + botH,
+    stroke: axisC, 'stroke-width': 1, opacity: 0,
+  });
+  svg.appendChild(cross);
+  const dotP = el('circle', { r: 4, fill: cPrice, stroke: surface, 'stroke-width': 2, opacity: 0 });
+  const dotS = el('circle', { r: 4, fill: cShort, stroke: surface, 'stroke-width': 2, opacity: 0 });
+  svg.appendChild(dotP); svg.appendChild(dotS);
+
+  const hit = el('rect', { x: M.l, y: topY, width: plotW, height: botY + botH - topY, fill: 'transparent' });
+  svg.appendChild(hit);
+  const tip = $('linkedTip');
+
+  hit.addEventListener('pointermove', (ev) => {
+    const r = svg.getBoundingClientRect();
+    const sx = ((ev.clientX - r.left) / r.width) * W;
+    let i = Math.round(((sx - M.l) / plotW) * (dates.length - 1));
+    i = Math.max(0, Math.min(dates.length - 1, i));
+    const px = x(i);
+    cross.setAttribute('x1', px); cross.setAttribute('x2', px); cross.setAttribute('opacity', 1);
+    const pv = priceFilled[i], sv = shortFilled[i];
+    if (Number.isFinite(pv)) { dotP.setAttribute('cx', px); dotP.setAttribute('cy', yP(pv)); dotP.setAttribute('opacity', 1); }
+    else dotP.setAttribute('opacity', 0);
+    if (Number.isFinite(sv)) { dotS.setAttribute('cx', px); dotS.setAttribute('cy', yS(sv)); dotS.setAttribute('opacity', 1); }
+    else dotS.setAttribute('opacity', 0);
+
+    tip.innerHTML =
+      `<div class="d">${esc(dates[i])}</div>` +
+      `<div class="r"><span><span class="swatch" style="background:${cPrice}"></span> Price</span><b>${Number.isFinite(pv) ? '$' + pv.toFixed(2) : '—'}</b></div>` +
+      `<div class="r"><span><span class="swatch" style="background:${cShort}"></span> Short</span><b>${Number.isFinite(sv) ? sv.toFixed(2) + '%' : '—'}</b></div>`;
+    tip.style.opacity = 1;
+    const wrapR = $('linkedWrap').getBoundingClientRect();
+    let left = ev.clientX - wrapR.left + 14;
+    if (left > wrapR.width - 170) left = ev.clientX - wrapR.left - 170;
+    tip.style.left = left + 'px';
+    tip.style.top = (ev.clientY - wrapR.top - 10) + 'px';
+  });
+  hit.addEventListener('pointerleave', () => {
+    cross.setAttribute('opacity', 0);
+    dotP.setAttribute('opacity', 0); dotS.setAttribute('opacity', 0);
+    tip.style.opacity = 0;
+  });
+
+  // table view
+  $('linkedTable').innerHTML =
+    '<table><thead><tr><th>Date</th><th>Price</th><th>Short %</th></tr></thead><tbody>' +
+    dates.map((d, i) =>
+      `<tr><td class="tnum">${esc(d)}</td><td class="tnum">${Number.isFinite(priceFilled[i]) ? '$' + priceFilled[i].toFixed(2) : '—'}</td>` +
+      `<td class="tnum">${Number.isFinite(shortFilled[i]) ? shortFilled[i].toFixed(2) + '%' : '—'}</td></tr>`
+    ).reverse().join('') + '</tbody></table>';
+}
+
+function renderStockMeta(code) {
+  const p = (S.data?.prices?.prices || {})[code];
+  const s = (S.data?.shorts?.rows || []).find((r) => r.code === code);
+  const anns = (S.data?.announcements?.announcements || {})[code] || [];
+  const box = $('stockMeta');
+  if (!p && !s) { box.innerHTML = ''; return; }
+  const tiles = [];
+  if (p) {
+    tiles.push(['Last', money(p.last), p.changePct]);
+    tiles.push(['Bid / Ask', money(p.bid) + ' / ' + money(p.ask), null]);
+    tiles.push(['Volume', fmtInt(p.volume), null]);
+    tiles.push(['Market cap', capMktCap(p.marketCap), null]);
+    tiles.push(['Sector', p.sector, null, true]);
+  }
+  if (s) {
+    tiles.push(['Short interest', s.shortPct.toFixed(2) + '%', null]);
+    tiles.push(['Shares short', fmtInt(s.shortShares), null]);
+    if (p && p.volume) tiles.push(['Days to cover', (s.shortShares / p.volume).toFixed(1), null]);
+  }
+  const ps = anns.filter((a) => a.priceSensitive);
+  box.innerHTML =
+    '<div class="tiles">' + tiles.map(([lab, val, dl, isText]) =>
+      `<div class="tile"><div class="lab">${esc(lab)}</div>` +
+      `<div class="val${isText ? '' : ' tnum'}"${isText ? ' style="font-size:15px;line-height:1.3;margin-top:6px"' : ''}>${esc(val)}</div>` +
+      (Number.isFinite(dl) ? `<div class="dl tnum ${dl >= 0 ? 'up' : 'down'}">${pct(dl)}</div>` : '') +
+      '</div>').join('') + '</div>' +
+    (ps.length
+      ? '<h3 style="margin-top:18px">Price-sensitive announcements</h3><table style="margin-top:6px"><tbody>' +
+        ps.map((a) => `<tr><td>${esc(a.headline)}</td><td class="tnum">${esc(a.date)}</td></tr>`).join('') +
+        '</tbody></table>'
+      : '');
+}
+
+/* ==================================================================== *
+ * TAB 1b — ranked bar chart
+ * ==================================================================== */
+function renderRank() {
+  const svg = $('rankChart');
+  svg.innerHTML = '';
+  const rows = shortRows().slice(0, S.rankCount);
+  if (!rows.length) {
+    svg.appendChild(el('text', { x: 450, y: 100, 'text-anchor': 'middle', fill: cssVar('--muted'), 'font-size': 13 },
+      'No short data yet — press Refresh data.'));
+    return;
+  }
+
+  const W = 900, rowH = 23, M = { l: 150, r: 70, t: 10, b: 26 };
+  const H = M.t + rows.length * rowH + M.b;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const plotW = W - M.l - M.r;
+  const max = Math.max(...rows.map((r) => r.shortPct)) * 1.05;
+  const mutedC = cssVar('--muted'), gridC = cssVar('--grid');
+
+  for (const t of niceTicks(0, max, 5)) {
+    const gx = M.l + (t / max) * plotW;
+    svg.appendChild(el('line', { x1: gx, x2: gx, y1: M.t, y2: M.t + rows.length * rowH, stroke: gridC, 'stroke-width': 1 }));
+    svg.appendChild(el('text', { x: gx, y: H - 8, 'text-anchor': 'middle', fill: mutedC, 'font-size': 11 }, t.toFixed(0) + '%'));
+  }
+
+  const tip = $('rankTip');
+  rows.forEach((r, i) => {
+    const y = M.t + i * rowH;
+    const w = Math.max(2, (r.shortPct / max) * plotW);
+    const color = r.shortPct >= 10 ? cssVar('--critical') : r.shortPct >= 8 ? cssVar('--warning') : cssVar('--series-short');
+    const g = el('g', { style: 'cursor:pointer' });
+    // 2px surface gap between adjacent bars, 4px rounded data-end
+    g.appendChild(el('rect', {
+      x: M.l, y: y + 3, width: w, height: rowH - 6, rx: 4, fill: color,
+    }));
+    g.appendChild(el('text', { x: M.l - 8, y: y + rowH / 2 + 4, 'text-anchor': 'end', fill: cssVar('--text-primary'), 'font-size': 12, 'font-weight': 600 }, r.code));
+    g.appendChild(el('text', { x: M.l + w + 7, y: y + rowH / 2 + 4, fill: cssVar('--text-secondary'), 'font-size': 11 }, r.shortPct.toFixed(2) + '%'));
+    const hit = el('rect', { x: 0, y, width: W, height: rowH, fill: 'transparent' });
+    g.appendChild(hit);
+    hit.addEventListener('pointerenter', (ev) => {
+      const p = (S.data?.prices?.prices || {})[r.code];
+      tip.innerHTML = `<div class="d">${esc(r.name)}</div>` +
+        `<div class="r"><span>Short interest</span><b>${r.shortPct.toFixed(2)}%</b></div>` +
+        `<div class="r"><span>Shares short</span><b>${fmtInt(r.shortShares)}</b></div>` +
+        (p ? `<div class="r"><span>Last</span><b>${money(p.last)}</b></div>` +
+             `<div class="r"><span>Day</span><b>${pct(p.changePct)}</b></div>` : '');
+      tip.style.opacity = 1;
+    });
+    hit.addEventListener('pointermove', (ev) => {
+      const wrapR = svg.parentElement.getBoundingClientRect();
+      let left = ev.clientX - wrapR.left + 14;
+      if (left > wrapR.width - 200) left = ev.clientX - wrapR.left - 200;
+      tip.style.left = left + 'px';
+      tip.style.top = (ev.clientY - wrapR.top - 10) + 'px';
+    });
+    hit.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
+    hit.addEventListener('click', () => {
+      S.selected = r.code;
+      $('stockPick').value = r.code;
+      drawLinked();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    svg.appendChild(g);
+  });
+
+  $('rankTable').innerHTML =
+    '<table><thead><tr><th>Code</th><th>Company</th><th>Short %</th><th>Shares short</th><th>Last</th><th>Day</th></tr></thead><tbody>' +
+    shortRows().map((r) => {
+      const p = (S.data?.prices?.prices || {})[r.code];
+      return `<tr><td class="code">${esc(r.code)}</td><td>${esc(r.name)}</td>` +
+        `<td class="tnum">${r.shortPct.toFixed(2)}%</td><td class="tnum">${fmtInt(r.shortShares)}</td>` +
+        `<td class="tnum">${p ? money(p.last) : '—'}</td>` +
+        `<td class="tnum ${p && p.changePct >= 0 ? 'up' : 'down'}">${p ? pct(p.changePct) : '—'}</td></tr>`;
+    }).join('') + '</tbody></table>';
+}
+
+/* table toggles */
+function toggleTable(btnId, chartSel, tableId) {
+  $(btnId).onclick = () => {
+    const t = $(tableId);
+    const showing = !t.classList.contains('hidden');
+    t.classList.toggle('hidden', showing);
+    document.querySelector(chartSel).parentElement.classList.toggle('hidden', !showing);
+    $(btnId).textContent = showing ? 'Table view' : 'Chart view';
+  };
+}
+$('rankCount').onchange = (e) => { S.rankCount = Number(e.target.value); renderRank(); };
+
+toggleTable('tableToggle1', '#linkedChart', 'linkedTable');
+toggleTable('tableToggle2', '#rankChart', 'rankTable');
+
+/* ==================================================================== *
+ * TAB 2 — signal cards
+ * ==================================================================== */
+function scoreColor(score) {
+  if (score >= 70) return cssVar('--good');
+  if (score >= 50) return cssVar('--warning');
+  if (score >= 35) return cssVar('--serious');
+  return cssVar('--muted');
+}
+
+function signalCard(sig) {
+  const p = sig.price;
+  const scoreCol = scoreColor(sig.score);
+  const m = sig.metrics || {};
+  return `<div class="card">
+    <div class="card-head">
+      <span class="ticker">${esc(sig.code)}</span>
+      <span class="cname">${esc(sig.name || '')}</span>
+      <span class="spacer"></span>
+      <span class="tag ${sig.side}">${sig.side === 'long' ? 'Buy / squeeze' : 'Short'}</span>
+      <span class="tag ${esc(sig.horizon)}">${sig.horizon === 'swing' ? 'Swing · days-weeks' : 'Position · weeks-months'}</span>
+      <span class="tag">${esc(sig.sector || '')}</span>
+    </div>
+    <div class="meter">
+      <span class="note">Conviction</span>
+      <span class="meter-track"><span class="meter-fill" style="width:${sig.score}%;background:${scoreCol}"></span></span>
+      <span class="meter-val tnum" style="color:${scoreCol}">${sig.score}</span>
+    </div>
+    <ul class="reasons">
+      ${(sig.reasons || []).map((r) => `<li>${esc(r)}</li>`).join('')}
+      ${(sig.warnings || []).map((r) => `<li class="warn">⚠ ${esc(r)}</li>`).join('')}
+    </ul>
+    <div class="metrics-row tnum">
+      <div><span>Last</span>${p ? money(p.last) : '—'}</div>
+      <div><span>Day</span><span class="${p && p.changePct >= 0 ? 'up' : 'down'}">${p ? pct(p.changePct) : '—'}</span></div>
+      <div><span>Short interest</span>${fmt(sig.shortPct)}%</div>
+      <div><span>5d short Δ</span>${m.d5 === null || m.d5 === undefined ? '—' : (m.d5 >= 0 ? '+' : '') + m.d5.toFixed(2)}</div>
+      <div><span>20d short Δ</span>${m.d20 === null || m.d20 === undefined ? '—' : (m.d20 >= 0 ? '+' : '') + m.d20.toFixed(2)}</div>
+      <div><span>Days to cover</span>${m.dtc ? m.dtc.toFixed(1) : '—'}</div>
+      <div><span>Mkt cap</span>${p ? capMktCap(p.marketCap) : '—'}</div>
+    </div>
+  </div>`;
+}
+
+function renderSignals() {
+  const sig = S.data?.signals;
+  const noneMsg = (what) =>
+    `<div class="empty">No ${what} clear the bar right now. That is a result, not a failure — ` +
+    `the screen is designed to stay quiet when nothing qualifies.</div>`;
+
+  // Lead with the top 5, but never drop the rest — the full ranked list is one
+  // click away rather than silently truncated.
+  const side = (elId, top, all, label) => {
+    const el = $(elId);
+    if (!top?.length) { el.innerHTML = noneMsg(label); return; }
+    const expanded = S['expand_' + elId];
+    const list = expanded ? (all || top) : top;
+    const extra = (all?.length || 0) - top.length;
+    el.innerHTML = list.map(signalCard).join('') +
+      (extra > 0
+        ? `<button class="more" data-target="${elId}" style="align-self:start">` +
+          (expanded ? 'Show top 5 only' : `Show all ${all.length} ranked ${label}`) + '</button>'
+        : '');
+    el.querySelectorAll('button.more').forEach((b) => {
+      b.onclick = () => { S['expand_' + elId] = !expanded; renderSignals(); };
+    });
+  };
+
+  side('longCards', sig?.longs, sig?.allLongs, 'squeeze candidates');
+  side('shortCards', sig?.shorts, sig?.allShorts, 'short candidates');
+}
+
+/* ==================================================================== *
+ * TAB 3 — portfolio
+ * ==================================================================== */
+function renderPortfolio() {
+  const holdings = S.data?.holdings?.positions || [];
+  const prices = S.data?.prices?.prices || {};
+  const shorts = Object.fromEntries((S.data?.shorts?.rows || []).map((r) => [r.code, r]));
+  const hist = S.data?.history || {};
+
+  const sharedBanner = S.data?.holdings?.shared
+    ? '<div class="alert medium" style="margin-bottom:14px"><span class="ico">↗</span>' +
+      '<span class="body">You are viewing a <strong>shared portfolio</strong> from the link you opened. ' +
+      'These positions came from the link, not from this browser — nothing here has been saved to ' +
+      'your machine, and the plain dashboard address shows no portfolio at all.</span></div>'
+    : '';
+
+  if (!holdings.length) {
+    $('pfTiles').innerHTML = '';
+    $('pfTable').innerHTML = sharedBanner +
+      '<div class="empty">No positions saved yet. Press <strong>Edit holdings</strong> and add ' +
+      'code, units and average buy price.</div>';
+    $('pfExtremes').innerHTML = '<div class="empty">Add holdings to see short-interest extremes in your book.</div>';
+    return;
+  }
+
+  let cost = 0, value = 0;
+  const rows = holdings.map((h) => {
+    const p = prices[h.code];
+    const s = shorts[h.code];
+    const last = p ? p.last : null;
+    const c = h.units * h.avgPrice;
+    const v = Number.isFinite(last) ? h.units * last : null;
+    cost += c;
+    if (Number.isFinite(v)) value += v;
+    const hh = hist[h.code] || [];
+    const d5 = hh.length > 5 ? hh[hh.length - 1][1] - hh[hh.length - 6][1] : null;
+    return { ...h, p, s, last, c, v, pl: Number.isFinite(v) ? v - c : null,
+             plPct: Number.isFinite(v) && c ? ((v - c) / c) * 100 : null, d5 };
+  });
+
+  const totalPl = value - cost;
+  const totalPlPct = cost ? (totalPl / cost) * 100 : 0;
+  const dayPl = rows.reduce((a, r) =>
+    a + (r.p && Number.isFinite(r.p.change) ? r.p.change * r.units : 0), 0);
+
+  $('pfTiles').innerHTML = [
+    ['Market value', money(value, 0), null],
+    ['Cost base', money(cost, 0), null],
+    ['Open P&L', money(totalPl, 0), totalPlPct],
+    ["Today's move", money(dayPl, 0), null],
+    ['Positions', String(rows.length), null],
+  ].map(([lab, val, dl]) =>
+    `<div class="tile"><div class="lab">${esc(lab)}</div><div class="val tnum">${esc(val)}</div>` +
+    (Number.isFinite(dl) ? `<div class="dl tnum ${dl >= 0 ? 'up' : 'down'}">${pct(dl)}</div>` : '') + '</div>'
+  ).join('');
+
+  $('pfTable').innerHTML = sharedBanner +
+    '<table><thead><tr><th>Code</th><th>Units</th><th>Avg</th><th>Last</th><th>Day</th>' +
+    '<th>Value</th><th>P&amp;L</th><th>P&amp;L %</th><th>Short %</th><th>5d Δ</th></tr></thead><tbody>' +
+    rows.map((r) => {
+      const sPct = r.s ? r.s.shortPct : null;
+      const sCls = !Number.isFinite(sPct) ? '' : sPct >= 10 ? 'down' : sPct >= 8 ? '' : '';
+      return `<tr><td class="code">${esc(r.code)}</td>` +
+        `<td class="tnum">${fmtInt(r.units)}</td>` +
+        `<td class="tnum">${money(r.avgPrice)}</td>` +
+        `<td class="tnum">${money(r.last)}</td>` +
+        `<td class="tnum ${r.p && r.p.changePct >= 0 ? 'up' : 'down'}">${r.p ? pct(r.p.changePct) : '—'}</td>` +
+        `<td class="tnum">${money(r.v, 0)}</td>` +
+        `<td class="tnum ${r.pl >= 0 ? 'up' : 'down'}">${money(r.pl, 0)}</td>` +
+        `<td class="tnum ${r.plPct >= 0 ? 'up' : 'down'}">${pct(r.plPct)}</td>` +
+        `<td class="tnum ${sCls}">${Number.isFinite(sPct) ? sPct.toFixed(2) + '%' : '—'}</td>` +
+        `<td class="tnum ${r.d5 > 0 ? 'down' : r.d5 < 0 ? 'up' : ''}">${Number.isFinite(r.d5) ? (r.d5 >= 0 ? '+' : '') + r.d5.toFixed(2) : '—'}</td></tr>`;
+    }).join('') + '</tbody></table>' +
+    '<p class="note" style="margin-top:10px">A rising 5-day short change on something you own is shown in red ' +
+    'because it means positioning moved against you, not because the price did.</p>';
+
+  const ext = S.data?.extremes?.extremes || [];
+  $('pfExtremes').innerHTML = ext.length
+    ? ext.map(alertHtml).join('')
+    : '<div class="empty">Nothing extreme in your book right now. Short interest on your holdings is stable.</div>';
+}
+
+function alertHtml(e) {
+  const ico = e.kind === 'covering' ? '↓' : e.kind === 'building' ? '↑' : e.kind === 'spike' ? '!' : '●';
+  return `<div class="alert ${esc(e.severity)}"><span class="ico">${ico}</span>` +
+    `<span class="body"><strong>${esc(e.code)}</strong> — ${esc(e.message.replace(new RegExp('^' + e.code + '\\s*'), ''))}</span></div>`;
+}
+
+/* holdings editor */
+function editorRow(h = { code: '', units: '', avgPrice: '', notes: '' }) {
+  const d = document.createElement('div');
+  d.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap';
+  d.innerHTML =
+    `<input type="text" class="small hc" placeholder="Code" maxlength="6" value="${esc(h.code)}" style="width:80px;text-transform:uppercase">` +
+    `<input type="number" class="small hu" placeholder="Units" step="any" value="${esc(h.units)}">` +
+    `<input type="number" class="small ha" placeholder="Avg price" step="any" value="${esc(h.avgPrice)}">` +
+    `<input type="text" class="hn" placeholder="Notes (optional)" value="${esc(h.notes || '')}" style="flex:1;min-width:140px">` +
+    `<button class="hd" title="Remove">Remove</button>`;
+  d.querySelector('.hd').onclick = () => d.remove();
+  return d;
+}
+
+$('editHoldings').onclick = () => {
+  const box = $('holdingsEditor');
+  const showing = !box.classList.contains('hidden');
+  box.classList.toggle('hidden', showing);
+  if (!showing) {
+    const rows = $('editorRows');
+    rows.innerHTML = '';
+    const held = S.data?.holdings?.positions || [];
+    (held.length ? held : [{ code: '', units: '', avgPrice: '' }]).forEach((h) => rows.appendChild(editorRow(h)));
+  }
+};
+$('addRow').onclick = () => $('editorRows').appendChild(editorRow());
+$('cancelHoldings').onclick = () => $('holdingsEditor').classList.add('hidden');
+$('saveHoldings').onclick = () => {
+  const positions = [...$('editorRows').children].map((d) => ({
+    code: d.querySelector('.hc').value.trim().toUpperCase(),
+    units: parseFloat(d.querySelector('.hu').value),
+    avgPrice: parseFloat(d.querySelector('.ha').value),
+    notes: d.querySelector('.hn').value,
+  })).filter((p) =>
+    /^[A-Z0-9]{2,6}$/.test(p.code) && Number.isFinite(p.units) && p.units > 0
+    && Number.isFinite(p.avgPrice) && p.avgPrice > 0);
+
+  const holdings = { positions, updatedAt: new Date().toISOString() };
+  if (!saveHoldings(holdings)) {
+    $('saveMsg').innerHTML = '<span class="err">Could not save — browser storage is blocked.</span>';
+    return;
+  }
+  S.data.holdings = holdings;
+  S.data.extremes = { extremes: computeHeldExtremes(S.data) };
+  $('saveMsg').textContent = `Saved ${positions.length} position${positions.length === 1 ? '' : 's'} to this browser.`;
+  $('holdingsEditor').classList.add('hidden');
+  renderPortfolio();
+  renderPicker();
+};
+
+$('shareHoldings').onclick = async () => {
+  const h = loadHoldings();
+  if (!h.positions.length) { $('saveMsg').textContent = 'Add and save some positions first.'; return; }
+  const url = `${location.origin}${location.pathname}#h=${encodeShare(h)}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    $('saveMsg').textContent = 'Share link copied — anyone with it sees your portfolio.';
+  } catch {
+    // Clipboard is blocked on some browsers unless the page is focused; fall
+    // back to showing the link so it can still be copied by hand.
+    $('saveMsg').innerHTML = 'Copy this link:<br><textarea readonly rows="3" ' +
+      'style="width:100%;margin-top:6px">' + esc(url) + '</textarea>';
+  }
+};
+
+$('exportHoldings').onclick = () => {
+  const blob = new Blob([JSON.stringify(loadHoldings(), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'asx-holdings.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+$('importHoldings').onclick = () => $('importFile').click();
+$('importFile').onchange = async (ev) => {
+  const file = ev.target.files?.[0];
+  if (!file) return;
+  try {
+    const parsed = JSON.parse(await file.text());
+    if (!Array.isArray(parsed?.positions)) throw new Error('No positions in that file');
+    saveHoldings({ positions: parsed.positions, updatedAt: new Date().toISOString() });
+    S.data.holdings = loadHoldings();
+    S.data.extremes = { extremes: computeHeldExtremes(S.data) };
+    renderPortfolio();
+    renderPicker();
+    $('saveMsg').textContent = `Imported ${parsed.positions.length} positions.`;
+  } catch (err) {
+    $('saveMsg').innerHTML = '<span class="err">Import failed: ' + esc(err.message) + '</span>';
+  }
+  ev.target.value = '';
+};
+
+/* ==================================================================== *
+ * TAB 4 — research & monitor
+ * ==================================================================== */
+function renderWatch() {
+  const w = S.data?.watch?.watch || [];
+  const prices = S.data?.prices?.prices || {};
+  const uniMeta = S.data?.universe?.meta || {};
+
+  $('watchList').innerHTML = w.length
+    ? w.map((e) => {
+        const p = prices[e.code];
+        const meta = uniMeta[e.code];
+        return `<div class="alert ${esc(e.severity)}">
+          <span class="ico">${e.kind === 'covering' ? '↓' : e.kind === 'building' ? '↑' : '●'}</span>
+          <span class="body"><strong>${esc(e.code)}</strong>${meta ? ' · ' + esc(meta.sector) : ''} — ` +
+          `${esc(e.message.replace(new RegExp('^' + e.code + '\\s*'), ''))}` +
+          (p ? ` <span class="note tnum">(${money(p.last)}, ${pct(p.changePct)} today)</span>` : '') +
+          `</span></div>`;
+      }).join('')
+    : '<div class="empty">Nothing moved enough to flag. Check back after the next refresh.</div>';
+
+  const macro = S.data?.macro?.macro || {};
+  const monitors = [];
+
+  if (macro.audusd) {
+    const a = macro.audusd;
+    monitors.push([
+      'AUD/USD — your broad market proxy',
+      `AUD/USD is at ${a.last.toFixed(4)}, ${a.trend20Pct >= 0 ? 'up' : 'down'} ` +
+      `${Math.abs(a.trend20Pct).toFixed(1)}% over 20 sessions. You described AUD as the tide the ASX moves with. ` +
+      `Worth testing rather than assuming: the relationship is real but it runs mostly through the resources ` +
+      `complex, so it is strongest for exactly the miners you favour and weakest for domestic-facing names. ` +
+      `If AUD turns while your miners do not, that divergence is usually the signal.`,
+    ]);
+  }
+  if (macro.ironOre || macro.copper) {
+    const parts = [];
+    if (macro.ironOre) parts.push(`iron ore ${pct(macro.ironOre.trend20Pct, 1)}`);
+    if (macro.copper) parts.push(`copper ${pct(macro.copper.trend20Pct, 1)}`);
+    if (macro.gold) parts.push(`gold ${pct(macro.gold.trend20Pct, 1)}`);
+    monitors.push([
+      'Commodity complex — 20 session trend',
+      `${parts.join(', ')}. Short interest in single-commodity miners tends to follow the underlying with a lag. ` +
+      `When the commodity turns up and short interest has not yet fallen, that gap is where squeezes come from.`,
+    ]);
+  }
+  monitors.push([
+    'The gap this dashboard cannot close',
+    'ASIC short positions arrive four trading days late and ASX prices here are roughly 20 minutes delayed. ' +
+    'That means this tool is good at finding setups and bad at timing entries. Use it to build the shortlist, ' +
+    'then use your live CMC book to time the trade.',
+  ]);
+  monitors.push([
+    'Position sizing on squeeze trades',
+    'Squeezes are the highest-variance trade on this dashboard. The same crowding that produces a violent ' +
+    'rally produces a violent failure when the short thesis turns out to be correct. Size these smaller than ' +
+    'your ordinary mining positions, not larger, however good the score looks.',
+  ]);
+
+  $('monitors').innerHTML = monitors.map(([t, b]) =>
+    `<div class="card" style="margin-bottom:12px"><h3>${esc(t)}</h3><p class="sub" style="margin:8px 0 0">${esc(b)}</p></div>`
+  ).join('');
+}
+
+function renderBacktest() {
+  const b = S.data?.backtest;
+  const el = $('backtest');
+  if (!el) return;
+  if (!b || !b.coverage?.observations) {
+    el.innerHTML = '<div class="empty">No track record yet — it is computed on the daily ' +
+      'full build, once there is enough stored history to measure against.</div>';
+    return;
+  }
+
+  const hs = b.horizons || [5, 10, 20];
+  const fmtPct = (v) => (Number.isFinite(v) ? (v >= 0 ? '+' : '') + v.toFixed(2) + '%' : '—');
+  const cls = (v) => (!Number.isFinite(v) ? '' : v > 0 ? 'up' : v < 0 ? 'down' : '');
+
+  const row = (r) => {
+    if (!r || !r.n) return `<tr><td>${esc(r?.label || '')}</td><td class="tnum">0</td>` +
+      hs.map(() => '<td>—</td><td>—</td>').join('') + '</tr>';
+    return `<tr><td>${esc(r.label)}</td><td class="tnum">${fmtInt(r.n)}</td>` +
+      hs.map((h) => {
+        const d = r.horizons[h] || {};
+        return `<td class="tnum ${cls(d.excess)}">${fmtPct(d.excess)}</td>` +
+               `<td class="tnum">${Number.isFinite(d.hitRate) ? d.hitRate.toFixed(0) + '%' : '—'}</td>`;
+      }).join('') + '</tr>';
+  };
+
+  el.innerHTML =
+    '<table><thead><tr><th>Bucket</th><th>Observations</th>' +
+    hs.map((h) => `<th>${h}d excess</th><th>${h}d win</th>`).join('') +
+    '</tr></thead><tbody>' +
+    (b.bands || []).map(row).join('') +
+    '<tr><td colspan="' + (2 + hs.length * 2) + '" style="padding:4px 8px"></td></tr>' +
+    row(b.ignition) + row(b.noIgnition) + row(b.crowded) +
+    '</tbody></table>' +
+    `<p class="note" style="margin-top:12px">` +
+    `${fmtInt(b.coverage.observations)} scored observations across ` +
+    `${b.coverage.evaluatedStocks} of ${b.coverage.stocks} stocks ` +
+    `(${b.coverage.skippedStocks} lacked enough history). Market baseline over the same ` +
+    `windows: ` + hs.map((h) => `${h}d ${fmtPct(b.baseline[h])}`).join(', ') + `.</p>` +
+    `<p class="note" style="margin-top:8px"><strong>Read this carefully.</strong> ` +
+    `The sample is one market regime a few months long, announcements are not replayed ` +
+    `(they aren't stored historically), and macro is excluded from the replay because ` +
+    `feeding today's macro into a past date would be cheating. ` +
+    `The weights are <em>not</em> tuned to these numbers — with a sample this size that ` +
+    `would fit noise and produce confident nonsense. This measures the engine; it does not ` +
+    `train it. Treat a bucket with few observations as unproven, not as evidence.</p>`;
+}
+
+function renderHealth() {
+  const h = S.data?.health;
+  if (!h) { $('health').innerHTML = '<div class="empty">No refresh has run yet.</div>'; return; }
+  const macroDetail = h.macro?.detail
+    ? Object.entries(h.macro.detail).map(([k, v]) => `${k}: ${v}`).join(' · ')
+    : (h.macro?.keys || []).join(', ');
+
+  const rows = [
+    ['ASIC short positions', h.asic?.ok, h.asic?.ok ? `${h.asic.rows} stocks, trade date ${h.asic.tradeDate} (T+4)` : (h.asic?.error || 'failed')],
+    ['Short-interest history', h.history?.ok, h.history?.ok
+      ? `${h.history.deepest} sessions deep across ${h.history.stocks} stocks` +
+        (h.backfill ? ` · backfilled ${h.backfill.days} days from the ASIC archive` : '')
+      : 'building'],
+    ['ASX prices', h.prices?.ok, h.prices?.ok ? `${h.prices.count} stocks, ~20 min delayed` : 'failed'],
+    ['Universe', h.universe?.ok, h.universe?.ok ? `${h.universe.size} stocks, rebuilt ${String(h.universe.builtAt).slice(0, 10)}` : 'failed'],
+    ['Macro / FX / sector', h.macro?.ok, macroDetail || 'failed'],
+    ['Price history', h.series?.ok ? (h.series.external === false ? 'warn' : true) : false,
+      h.series?.ok
+        ? (h.series.external === false
+            ? `no external history source is reachable — building from our own daily closes ` +
+              `(${h.series.withHistory ?? 0}/${h.series.count} stocks usable so far). ` +
+              `The short panel is unaffected: that is backfilled from ASIC.`
+            : `${h.series.count} stocks` +
+              (h.series.sources && Object.keys(h.series.sources).length
+                ? ' via ' + Object.entries(h.series.sources).map(([k, v]) => `${k} (${v})`).join(', ')
+                : ''))
+        : 'failed'],
+    ['Track record', h.backtest?.ok, h.backtest?.ok
+      ? `${fmtInt(h.backtest.observations)} scored observations across ${h.backtest.stocks} stocks`
+      : 'not enough stored history yet'],
+  ];
+  const dot = { true: ['--good', '● live'], warn: ['--warning', '● partial'], false: ['--critical', '● down'] };
+  $('health').innerHTML =
+    '<table><thead><tr><th>Source</th><th>Status</th><th>Detail</th></tr></thead><tbody>' +
+    rows.map(([n, ok, d]) => {
+      const [c, lab] = dot[String(ok)] || dot.false;
+      return `<tr><td>${esc(n)}</td><td style="text-align:left"><span style="color:${cssVar(c)}">` +
+        `${lab}</span></td><td style="text-align:left;white-space:normal">${esc(d)}</td></tr>`;
+    }).join('') +
+    '</tbody></table>' +
+    `<p class="note" style="margin-top:10px">Last update ${h.checkedAt ? new Date(h.checkedAt).toLocaleString('en-AU') : '—'}` +
+    `${h.lastLightKind ? ' — ' + esc(h.lastLightKind) : ''}` +
+    `${h.durationMs ? ' · took ' + (h.durationMs / 1000).toFixed(0) + 's' : ''}.` +
+    `${h.lastFull ? ' Last full sweep ' + new Date(h.lastFull).toLocaleString('en-AU') + '.' : ''}</p>` +
+    `<p class="note" style="margin-top:6px">Two schedules, both run by GitHub Actions — no server, ` +
+    `nothing to keep awake, and it keeps working whether or not anyone is watching. ` +
+    `<strong>Daily, 08:00 AEST:</strong> the full sweep — ASIC short positions, universe rebuild, ` +
+    `price history, signals. ASIC publishes once a day, so this is the tier that matters. ` +
+    `<strong>Hourly, 10:00-16:00 AEST:</strong> prices, macro and announcements only, so the ` +
+    `portfolio tab is not showing yesterday's prices mid-session. Nothing runs while the market is shut. ` +
+    `The page re-reads every five minutes while open, and <strong>Force refresh</strong> opens the ` +
+    `workflow so you can run it on demand.</p>`;
+}
+
+/* ==================================================================== *
+ * Go
+ * ==================================================================== */
+load();
+</script>
+</body>
+</html>

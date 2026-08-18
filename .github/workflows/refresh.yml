@@ -1,0 +1,71 @@
+name: Refresh dashboard data
+
+# Two schedules, both in UTC.
+#   22:00 Sun-Thu  = 08:00 AEST Mon-Fri, just after ASIC publishes the daily
+#                    aggregate short position report. This is the full sweep.
+#   00:00-06:00 Mon-Fri = 10:00-16:00 AEST, the ASX session. Prices and macro
+#                    only, so the portfolio tab isn't showing yesterday's
+#                    prices mid-session. ASIC is not refetched: it publishes
+#                    once a day, so asking hourly would be wasted requests.
+on:
+  schedule:
+    - cron: '0 22 * * 0-4'
+    - cron: '0 0-6 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'full = everything including ASIC. light = prices and macro only.'
+        required: false
+        default: full
+        type: choice
+        options: [full, light]
+
+# Needed to commit the refreshed data back to the repository.
+permissions:
+  contents: write
+
+# If a scheduled run overlaps a manual one, let the running job finish rather
+# than having two jobs commit to the same branch at once.
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Choose mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "mode=${{ inputs.mode }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 22 * * 0-4" ]; then
+            echo "mode=full" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=light" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch data and rebuild
+        run: node scripts/build.mjs --mode=${{ steps.mode.outputs.mode }}
+
+      - name: Commit refreshed data
+        run: |
+          git config user.name  "asx-dashboard-bot"
+          git config user.email "actions@github.com"
+          git add data docs/data.json
+          if git diff --staged --quiet; then
+            echo "Nothing changed."
+          else
+            git commit -m "Refresh data (${{ steps.mode.outputs.mode }}) $(date -u +'%Y-%m-%d %H:%M UTC')"
+            # Another run may have pushed while this one was fetching.
+            git pull --rebase --autostash origin ${{ github.ref_name }} || true
+            git push
+          fi
