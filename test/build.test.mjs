@@ -259,6 +259,32 @@ check('ignition beats the market in this fixture, where it is built to',
 check('hit rates are percentages, not fractions',
   bt.ignition.horizons[20].hitRate > 1 && bt.ignition.horizons[20].hitRate <= 100);
 
+console.log('\n— when no history source answers, say why —');
+{
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes('stooq.')) return new Response('Exceeded the daily hits limit', { status: 200 });
+    return realFetch(url);
+  };
+  await rm(join(ROOT, 'data', 'series'), { recursive: true, force: true });
+  await main({ mode: 'full' });
+  globalThis.fetch = realFetch;
+
+  const d3 = JSON.parse(await readFile(join(ROOT, 'docs', 'data.json'), 'utf8'));
+  check('external history is reported as unavailable', d3.health.series.external === false);
+  check('the number of stocks attempted is recorded',
+    d3.health.series.attempted > 0, String(d3.health.series.attempted));
+  check('the actual refusal is captured, not just a red dot',
+    /daily hits limit/i.test(JSON.stringify(d3.health.series.errors || {})),
+    JSON.stringify(d3.health.series.errors));
+  check('history requests are capped well below the universe size',
+    d3.health.series.attempted <= 80, String(d3.health.series.attempted));
+}
+
+// Restore good data for the light-build checks that follow.
+await main({ mode: 'full' });
+
 console.log('\n— incremental light build —');
 const asicBefore = calls.asic;
 await main({ mode: 'light' });

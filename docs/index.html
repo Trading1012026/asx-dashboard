@@ -1439,9 +1439,14 @@ function renderHealth() {
     ['Price history', h.series?.ok ? (h.series.external === false ? 'warn' : true) : false,
       h.series?.ok
         ? (h.series.external === false
-            ? `no external history source is reachable — building from our own daily closes ` +
-              `(${h.series.withHistory ?? 0}/${h.series.count} stocks usable so far). ` +
-              `The short panel is unaffected: that is backfilled from ASIC.`
+            ? `no external history source answered` +
+              (h.series.attempted ? ` for the ${h.series.attempted} stocks tried` : '') +
+              (h.series.errors && Object.keys(h.series.errors).length
+                ? ' — ' + Object.entries(h.series.errors).map(([k, v]) => `${k}: ${v}`).join('; ')
+                : '') +
+              `. Building from our own daily closes instead ` +
+              `(${h.series.withHistory ?? 0}/${h.series.count} stocks usable so far), which adds ` +
+              `one session per weekday. The short panel is unaffected — that is backfilled from ASIC.`
             : `${h.series.count} stocks` +
               (h.series.sources && Object.keys(h.series.sources).length
                 ? ' via ' + Object.entries(h.series.sources).map(([k, v]) => `${k} (${v})`).join(', ')

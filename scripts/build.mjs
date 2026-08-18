@@ -16,7 +16,7 @@ import { dirname, join, resolve } from 'node:path';
 
 import {
   fetchAsicShortPositions, backfillAsicHistory, fetchAsxHeader, fetchAnnouncements,
-  fetchStockHistory, fetchMacro, fetchMacroProxies, pooled, isoDate,
+  fetchStockHistory, fetchMacro, fetchMacroProxies, historyDiagnostics, pooled, isoDate,
 } from '../lib/sources.mjs';
 import { makeRowBuilder, scoreAndStore, buildIndexSeries, asxSessionish } from '../lib/pipeline.mjs';
 import { backtest } from '../lib/backtest.mjs';
@@ -37,6 +37,11 @@ const SHORT_HIST_DAYS = 180;
 // at the end of the build, which fails loudly rather than quietly bloating the
 // repository forever.
 const PUBLISH_HIST_CODES = UNIVERSE_SIZE;
+// Per-stock price history comes from a free third party that throttles. Asking
+// for all 300 in one burst is what gets a source to stop answering, so only the
+// names actually worth charting are requested, slowly.
+const HISTORY_FETCH_COUNT = 80;
+const HISTORY_CONCURRENCY = 3;
 const MAX_DATA_JSON_MB = 8;
 
 function parseArgs(argv) {
@@ -220,14 +225,20 @@ export async function main(opts = {}) {
   let seriesByCode = (await store.get('series/latest', { type: 'json' }))?.series || {};
   let annsByCode = (await store.get('announcements/latest', { type: 'json' }))?.announcements || {};
 
+  // Announcements: the ASX's own API handles the whole list comfortably.
   const annTargets = mode === 'full' ? candidates : candidates.slice(0, 60);
-  const deep = await pooled(annTargets, 6, async (code) => {
-    const [series, anns] = await Promise.all([
-      mode === 'full' ? fetchStockHistory(code, '6mo') : Promise.resolve(null),
-      fetchAnnouncements(code, 8),
-    ]);
-    return { code, series, anns };
-  });
+  const annResults = await pooled(annTargets, 6, async (code) =>
+    ({ code, anns: await fetchAnnouncements(code, 8) }));
+
+  // Price history: a much smaller, slower ask, and only on full builds.
+  const histTargets = mode === 'full' ? candidates.slice(0, HISTORY_FETCH_COUNT) : [];
+  const histResults = await pooled(histTargets, HISTORY_CONCURRENCY, async (code) =>
+    ({ code, series: await fetchStockHistory(code, '6mo') }));
+
+  const deep = [
+    ...annResults.filter(Boolean).map((r) => ({ code: r.code, anns: r.anns, series: null })),
+    ...histResults.filter(Boolean).map((r) => ({ code: r.code, anns: null, series: r.series })),
+  ];
 
   let externalHistory = false;
   const historySources = {};
@@ -261,7 +272,17 @@ export async function main(opts = {}) {
     withHistory: Object.values(seriesByCode).filter((s) => s && s.length > 5).length,
     external: mode === 'full' ? externalHistory : (prevSeriesHealth.external ?? false),
     sources: mode === 'full' ? historySources : (prevSeriesHealth.sources || {}),
+    attempted: mode === 'full' ? histTargets.length : (prevSeriesHealth.attempted ?? 0),
+    // When nothing answered, say what each source actually said rather than
+    // leaving a bare red dot to interpret.
+    errors: mode === 'full'
+      ? (externalHistory ? {} : historyDiagnostics())
+      : (prevSeriesHealth.errors || {}),
   };
+  if (mode === 'full' && !externalHistory) {
+    say(`Price history: no source answered for ${histTargets.length} stocks — ` +
+        JSON.stringify(historyDiagnostics()));
+  }
 
   /* ---------------------------------------------------------------- *
    * 6. Score
